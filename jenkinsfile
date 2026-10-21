@@ -4,7 +4,7 @@ pipeline {
 
     environment {
 
-        IMAGE_NAME = "dockerfile"
+        IMAGE_NAME = "myapp"
         IMAGE_TAG = "v1.${BUILD_NUMBER}"
     }
 
@@ -48,7 +48,7 @@ pipeline {
 
                 sh '''
 
-                docker build -t dockerfile . 
+                docker build -t ${IMAGE_NAME}:${IMAGE_TAG}. 
 
                 docker tag ${IMAGE_NAME}:${IMAGE_TAG} neeraj91/${IMAGE_NAME}:${IMAGE_TAG} 
 
