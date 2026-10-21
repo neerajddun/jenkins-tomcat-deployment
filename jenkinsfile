@@ -2,6 +2,12 @@ pipeline {
 
     agent any 
 
+    environment {
+
+        IMAGE_NAME = "myapp"
+        IMAGE_TAG = "v1.${BUILD_NUMBER}"
+    }
+
     stages {
 
         stage('Checkout') {
@@ -83,7 +89,7 @@ pipeline {
               sh '''
                 
                 WAR=$(ls target/*.war | head -n 1)
-                curl -f -u $TC_USER:$TC_PASS -T "$WAR" \
+                curl -f -u $TC_NAME:$TC_PASS -T "$WAR" \
                 "http://localhost:8090/manager/text/deploy?path=/myapp&update=true"
               
               '''
