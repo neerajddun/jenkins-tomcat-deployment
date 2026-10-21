@@ -67,7 +67,7 @@ pipeline {
                 
                 sh '''
 
-                echo ${DockerVars} | docker login -u ${DockerName} --password-stdin
+                echo ${DockerPass} | docker login -u ${DockerName} --password-stdin
 
                 docker push  neeraj91/${IMAGE_NAME}:${IMAGE_TAG} 
 
