@@ -4,7 +4,7 @@ pipeline {
 
     environment {
 
-        IMAGE_NAME = "myapp"
+        IMAGE_NAME = "dockerfile"
         IMAGE_TAG = "v1.${BUILD_NUMBER}"
     }
 
