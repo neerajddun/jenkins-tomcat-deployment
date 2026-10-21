@@ -63,7 +63,7 @@ pipeline {
 
             steps {
 
-                withCredentials([usernamePassword(credentialsId: 'github-creds', passwordVariable: 'DockerVars', usernameVariable: 'DockerName')]) {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DockerPass', usernameVariable: 'DockerName')]) {
                 
                 sh '''
 
