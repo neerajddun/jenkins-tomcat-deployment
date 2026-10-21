@@ -1,0 +1,94 @@
+pipeline {
+
+    agent any 
+
+    stages {
+
+        stage('Checkout') {
+
+            steps {
+
+                checkout scm
+            }
+        }
+
+        stage ('unit test') {
+
+            steps {
+
+                sh 'mvn test'
+            }
+        }
+        
+        stage ('Integration test') {
+
+            steps {
+
+                sh 'mvn verify -DskipTests -B'
+            }
+        }
+
+        stage ('Build') {
+
+            steps {
+
+                sh 'mvn clean install -B'
+            }
+        }
+        
+         stage ('Docker Image') {
+
+            steps {
+
+                sh '''
+
+                docker build -t dockerfile . 
+
+                docker tag ${IMAGE_NAME}:${IMAGE_TAG} neeraj91/${IMAGE_NAME}:${IMAGE_TAG} 
+
+                docker tag ${IMAGE_NAME}:${IMAGE_TAG} neeraj91/${IMAGE_NAME}:latest
+                
+                '''
+
+            }
+        }
+
+        stage ('Docker Push') {
+
+            steps {
+
+                withCredentials([usernamePassword(credentialsId: 'github-creds', passwordVariable: 'DockerVars', usernameVariable: 'DockerName')]) {
+                
+                sh '''
+
+                echo ${DockerVars} | docker login -u ${DockerName} --password-stdin
+
+                docker push  neeraj91/${IMAGE_NAME}:${IMAGE_TAG} 
+
+                docker push  neeraj91/${IMAGE_NAME}:latest
+
+                '''
+                
+                }
+            }
+        }
+
+
+        stage ('Deploy to Tomcat') {
+
+            steps {
+             
+             withCredentials([usernamePassword(credentialsId: 'tomcat-creds', passwordVariable: 'TC_PASS', usernameVariable: 'TC_NAME')]) {
+             
+              sh '''
+                
+                WAR=$(ls target/*.war | head -n 1)
+                curl -f -u $TC_USER:$TC_PASS -T "$WAR" \
+                "http://localhost:8090/manager/text/deploy?path=/myapp&update=true"
+              
+              '''
+                }
+            }
+        }
+    }
+}
