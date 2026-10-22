@@ -1,0 +1,23 @@
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - tomcat_webapps:/tomcat-webapps
+    restart: unless-stopped
+
+  tomcat:
+    image: tomcat:11.0-jdk21
+    ports:
+      - "8090:8080"
+    volumes:
+      - tomcat_webapps:/usr/local/tomcat/webapps
+      - ./tomcat-users.xml:/usr/local/tomcat/conf/tomcat-users.xml
+    restart: unless-stopped
+
+volumes:
+  jenkins_home:
+  tomcat_webapps:

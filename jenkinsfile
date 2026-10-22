@@ -79,21 +79,19 @@ pipeline {
             }
         }
 
-
-        stage ('Deploy to Tomcat') {
-
+       stage('Deploy to Tomcat') {
+            
             steps {
-             
-             withCredentials([usernamePassword(credentialsId: 'tomcat-creds', passwordVariable: 'TC_PASS', usernameVariable: 'TC_NAME')]) {
-             
-              sh '''
+        
+                withCredentials([usernamePassword(credentialsId: 'tomcat-creds', passwordVariable: 'TC_PASS', usernameVariable: 'TC_NAME')]) {
                 
+                sh '''
                 WAR=$(ls target/*.war | head -n 1)
-                curl -f -u $TC_NAME:$TC_PASS -T "$WAR" \
-                "http://localhost:8090/manager/text/deploy?path=/myapp&update=true"
-              
-              '''
-                }
+                curl -f -u "$TC_NAME:$TC_PASS" -T "$WAR" \
+                "http://tomcat:8080/manager/text/deploy?path=/myapp&update=true"
+             
+                '''
+               }
             }
         }
     }
