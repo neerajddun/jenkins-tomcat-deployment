@@ -88,7 +88,7 @@ pipeline {
                 sh '''
                 WAR=$(ls target/*.war | head -n 1)
                 curl -f -u "$TOMCAT_USER:$TOMCAT_PASS" -T "$WAR" \
-                "http://tomcat:8090/manager/text/deploy?path=/myapp&update=true"
+                "http://tomcat:8080/manager/text/deploy?path=/myapp&update=true"
              
                 '''
                }
