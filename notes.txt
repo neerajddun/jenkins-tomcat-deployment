@@ -1,0 +1,88 @@
+TOMCAT SERVER SETUP AND WAR DEPLOYMENT NOTES (Jenkins + Docker)
+================================================================
+
+OVERVIEW
+--------
+Jenkins and Tomcat run as Docker containers on the same network (devops-net).
+Jenkins builds the Spring Boot WAR and uploads it to Tomcat's Manager.
+From Jenkins use:   http://tomcat:8080
+From your browser:  http://localhost:8081/myapp/
+
+
+SETUP STEPS
+-----------
+* CREATE THE SHARED NETWORK
+  docker network create devops-net
+
+* CREATE tomcat-users.xml (before running the container)
+  <?xml version="1.0" encoding="UTF-8"?>
+  <tomcat-users xmlns="http://tomcat.apache.org/xml" version="1.0">
+    <role rolename="manager-script"/>
+    <role rolename="manager-gui"/>
+    <user username="deployer" password="YOUR_PASSWORD" roles="manager-script,manager-gui"/>
+  </tomcat-users>
+
+* RUN TOMCAT 11 ON THAT NETWORK
+  docker run -d --name tomcat --network devops-net --restart unless-stopped -p 8081:8080 -v "%cd%\tomcat-users.xml:/usr/local/tomcat/conf/tomcat-users.xml" tomcat:11.0-jdk21
+  (Spring Boot 4 needs Servlet 6.1 = Tomcat 11. Tomcat 9 / 10.1 will not work.)
+
+* RESTORE THE DEFAULT APPS (official image has an empty webapps folder)
+  docker exec tomcat sh -c "cp -r /usr/local/tomcat/webapps.dist/* /usr/local/tomcat/webapps/"
+
+* CREATE manager-context.xml (allows Jenkins to reach the Manager, avoids 403)
+  <Context antiResourceLocking="false" privileged="true">
+    <Valve className="org.apache.catalina.valves.RemoteAddrValve" allow=".*" />
+  </Context>
+
+* COPY IT INTO THE MANAGER APP
+  docker cp manager-context.xml tomcat:/usr/local/tomcat/webapps/manager/META-INF/context.xml
+
+* RESTART TOMCAT (it reads config files only at startup)
+  docker restart tomcat
+
+* CONNECT JENKINS TO THE SAME NETWORK
+  docker network connect devops-net jenkins
+
+* TEST THE LOGIN FROM JENKINS
+  docker exec jenkins curl -u deployer:YOUR_PASSWORD http://tomcat:8080/manager/text/list
+  Expected: OK - Listed applications for virtual host [localhost]
+
+* ADD THE JENKINS CREDENTIAL
+  Manage Jenkins > Credentials > ID: tomcat-credentials
+  (username and password must match tomcat-users.xml)
+
+* DEPLOY FROM THE PIPELINE (internal port 8080, URL in double quotes)
+  curl -f -u "$TOMCAT_USER:$TOMCAT_PASS" -T "$WAR" "http://tomcat:8080/manager/text/deploy?path=/myapp&update=true"
+  Success: OK - Deployed application at context path [/myapp]
+
+* VERIFY
+  Open http://localhost:8081/myapp/
+  docker logs tomcat --tail 100
+
+* CLEAN UP SAMPLE APPS
+  docker exec jenkins curl -u deployer:YOUR_PASSWORD "http://tomcat:8080/manager/text/undeploy?path=/docs"
+  docker exec jenkins curl -u deployer:YOUR_PASSWORD "http://tomcat:8080/manager/text/undeploy?path=/examples"
+
+* HARDEN (beyond local learning)
+  Change the deployer password and restrict the allow pattern to your Docker network.
+
+
+KEY RULES
+---------
+* Inside Jenkins use tomcat:8080. In your browser use localhost:8081.
+* Always put the deploy URL in double quotes, or the shell cuts it at the &.
+* Edit tomcat-users.xml on your PC, not with sed inside the container
+  (bind-mounted file gives "Device or resource busy"). Then restart Tomcat.
+* If Tomcat is recreated, redo: webapps.dist copy, manager-context.xml copy, restart.
+* Maven and the Docker CLI installed inside the Jenkins container are lost if it is
+  recreated. Use a custom Dockerfile to keep them.
+
+
+TROUBLESHOOTING
+---------------
+* Connection refused    -> wrong port (use 8080 inside the network, not 8081 or 8090)
+* 401 Unauthorized      -> username/password mismatch with tomcat-users.xml
+* 403 Access Denied     -> manager-context.xml not applied; copy it and restart
+* Tomcat 404 on /myapp  -> Tomcat version too old for Spring Boot 4 (use Tomcat 11)
+* Whitelabel 404 page   -> app is running, but no controller is mapped to that path
+* Docker Hub 502        -> temporary registry error; rerun or use retry(3)
